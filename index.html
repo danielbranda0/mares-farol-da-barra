@@ -75,7 +75,7 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,4.4vw,38px)
 /* Grade */
 .dow,.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .dow span{font-family:var(--f-mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;padding:2px 0}
-.cell{position:relative;overflow:hidden;border:1px solid transparent;border-radius:8px;padding:5px 4px 11px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0;min-height:100px;background:var(--surface-2);transition:transform .08s}
+.cell{position:relative;overflow:hidden;border:1px solid transparent;border-radius:8px;padding:5px 4px 11px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0;min-height:64px;background:var(--surface-2);transition:transform .08s}
 .cell:hover{border-color:var(--line)}
 .cell:active{transform:scale(.97)}
 .cell.blank{background:transparent;cursor:default;border:0}
@@ -159,7 +159,7 @@ button.cc{cursor:pointer} button.cc:hover{border-color:var(--accent)}
 .scrim{display:none}
 
 @media (min-width:700px){
-  .cell{min-height:114px;padding:6px 6px 12px}
+  .cell{min-height:72px;padding:6px 6px 12px}
   .cell .dn{font-size:13px}
   .cell .cf{font-size:12.5px}
   .cell .tl{font-size:11.5px}
@@ -180,7 +180,7 @@ button.cc{cursor:pointer} button.cc:hover{border-color:var(--accent)}
   .scrim.open{opacity:1;pointer-events:auto}
 }
 @media (max-width:420px){
-  .cell{padding:4px 2px 10px;min-height:96px}
+  .cell{padding:4px 2px 10px;min-height:62px}
   .cell .tl{font-size:9.6px;letter-spacing:-.02em}
   .cell .cf{font-size:10.5px;padding:1px 3px}
   .cell .dn{font-size:11px}
@@ -231,7 +231,7 @@ button.cc{cursor:pointer} button.cc:hover{border-color:var(--accent)}
         <span class="sw"><i style="background:var(--hol);height:12px;width:12px;clip-path:polygon(0 0,100% 0,100% 100%)"></i>Feriado</span>
         <span class="sw"><i style="background:var(--pf);height:12px;width:12px;clip-path:polygon(0 0,100% 0,100% 100%)"></i>Ponto facultativo</span>
         <span class="sw"><i style="height:12px;width:18px;border:1px dashed var(--muted);border-radius:3px"></i>Coeficiente calculado (2028–2029)</span>
-        <span><b class="up">▲</b> preamar · <b class="down">▼</b> baixa-mar · apagado = no escuro</span>
+        <span><b class="up">▲</b> preamar · <b class="down">▼</b> baixa-mar · no calendário, as 2 marés mais próximas do meio-dia</span>
       </div>
     </section>
 
@@ -285,6 +285,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 
 function lb(m){let lo=0,hi=EXT.length;while(lo<hi){const mid=(lo+hi)>>1;if(EXT[mid][0]<m)lo=mid+1;else hi=mid}return lo}
 function dayExt(i){return EXT.slice(lb(i*1440),lb((i+1)*1440))}
+function noonExt(i){return dayExt(i).map(e=>[e,Math.abs(e[0]-i*1440-720)]).sort((a,b)=>a[1]-b[1]).slice(0,2).map(x=>x[0]).sort((a,b)=>a[0]-b[0])}
 function heightAt(m){const k=lb(m);if(k<=0)return EXT[0][1]/100;if(k>=EXT.length)return EXT[EXT.length-1][1]/100;
   const A=EXT[k-1],B=EXT[k],f=(m-A[0])/(B[0]-A[0]);return (A[1]+(B[1]-A[1])*(1-Math.cos(Math.PI*f))/2)/100}
 
@@ -300,11 +301,12 @@ const clampI=i=>Math.max(0,Math.min(N-1,i));
 let vy, vm, sel;
 const mq=window.matchMedia("(max-width:999px)");
 
+const GAP=10;
 function compare(i){
   const q=maxC(i),lo=Math.max(0,i-365),hi=Math.min(N-1,i+365);
   let prev=null,next=null,cp=0,cn=0;
-  for(let j=i-1;j>=lo;j--){if(maxC(j)<=q){cp++;if(prev===null)prev=j}}
-  for(let j=i+1;j<=hi;j++){if(maxC(j)<=q){cn++;if(next===null)next=j}}
+  for(let j=i-1;j>=lo;j--){if(maxC(j)<=q){cp++;if(prev===null&&i-j>GAP)prev=j}}
+  for(let j=i+1;j<=hi;j++){if(maxC(j)<=q){cn++;if(next===null&&j-i>GAP)next=j}}
   return{q,prev,next,cp,cn,lo,hi,loCut:i-365<0,hiCut:i+365>N-1};
 }
 
@@ -322,13 +324,13 @@ function renderCalendar(){
     if(i<0||i>=N){h+='<div class="cell off"><div class="row1"><span class="dn">'+d+'</span></div></div>';continue}
     const [a,b,sr,ss]=DATA.days[i], lv=level(Math.max(a,b)), wd=dOf(i).getUTCDay();
     let tl="";
-    for(const [m,hc,hi] of dayExt(i)){const t=m-i*1440,dk=(t<sr||t>ss);
+    for(const [m,hc,hi] of noonExt(i)){const t=m-i*1440,dk=(t<sr||t>ss);
       tl+='<span class="tl'+(dk?' dk':'')+'"><span class="'+(hi?'up':'down')+'">'+(hi?'▲':'▼')+'</span>'+hm(t)+'</span>'}
     const ho=HOL[isoOf(i)];
     const cls="cell "+lv.k+(wd===0||wd===6?" wkd":"")+(ho?(ho[2]==="pf"?" pf":" hol"):"")+(isEst(i)?" est":"")+(i===TODAY?" today":"")+(i===sel?" sel":"");
     h+='<button type="button" class="'+cls+'" data-i="'+i+'" aria-label="'+d+' de '+MESES[vm]+', coeficiente '+a+' e '+b+', '+lv.n+(ho?', '+ho[1]+' ('+TYPN[ho[2]]+')':'')+'">'+
        '<div class="row1"><span class="dn'+(wd===0||wd===6?' we':'')+'">'+d+'</span></div>'+
-       '<span class="cf">'+a+'/'+b+'</span>'+tl+(ho?'<span class="hn">'+esc(ho[0])+'</span><i class="flag"></i>':'')+'<i class="bar"></i></button>';
+       '<span class="cf">'+a+'/'+b+'</span>'+tl+(ho?'<i class="flag"></i>':'')+'<i class="bar"></i></button>';
   }
   $("grid").innerHTML=h;
   renderCycle();
@@ -396,7 +398,7 @@ function renderDetail(){
     '<div class="curve">'+sv(curveSvg(i))+'</div>'+
     '<div class="tides">'+tides+'</div>'+
     '<div class="sun"><span>Nascer do sol <b>'+hm(sr)+'</b></span><span>Pôr do sol <b>'+hm(ss)+'</b></span></div>'+
-    '<div class="cmp"><h4>Dias tão bons quanto este (coef. ≤ '+q+')</h4>'+
+    '<div class="cmp"><h4>Dias tão bons quanto este (coef. ≤ '+q+')</h4><div class="counts">Fora do mesmo ciclo de maré: ignora os 10 dias antes e depois.</div>'+
       '<div class="cmpgrid">'+card("Última vez",c.prev,-1)+card("Próxima vez",c.next,1)+'</div>'+
       '<div class="counts"><b>'+c.cp+'</b> dias assim nos 12 meses anteriores · <b>'+c.cn+'</b> nos 12 meses seguintes'+winTxt+'</div></div>';
 }
